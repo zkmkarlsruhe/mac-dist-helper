@@ -36,7 +36,7 @@ mac.codesign.entitlements ?= $(mac.codesign.name).entitlements
 ##### codesign
 
 # don't apply entitlements if not available
-ifneq ($(shell test -e $(mac.codesign.entitlements) && echo "true"),true)
+ifeq ($(shell test -e $(mac.codesign.entitlements) && echo "true"),true)
 mac.codesign.entitlements.option = --entitlements $(mac.codesign.entitlements)
 endif
 
@@ -46,12 +46,15 @@ endif
 # FIXME: this probably can't handle paths with spaces
 codesign:
 	@echo "===== codesign"
+	@if test "x$(mac.codesign.identity)" = "x-" ; then \
+		echo "warning: signing using ad-hoc identity \"-\"" ; \
+	fi
 	@for path in $(mac.codesign) ; do \
+		echo "$$path" ; \
 		$(CODESIGN) --force \
 			--sign "$(mac.codesign.identity)" \
 			 $(mac.codesign.entitlements.option) \
 			"$$path" ; \
-		echo "$$path" ; \
 	done
 
 # remove codesign from files
@@ -59,9 +62,9 @@ codesign:
 codesign-remove:
 	@echo "===== codesign remove"
 	@for path in $(mac.codesign) ; do \
+		echo "$$path" ; \
 		$(CODESIGN) --remove-signature \
 			"$$path" ; \
-		echo "$$path" ; \
 	done
 
 # verify code signature(s)

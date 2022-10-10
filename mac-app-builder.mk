@@ -41,6 +41,11 @@ endif
 mac.codesign.name ?= $(mac.app.name)
 include $(mac.app.builder.mk.dir)/codesign.mk
 
+##### notarize
+
+mac.notarize.name ?= $(mac.app.name)
+include $(mac.app.builder.mk.dir)/notarize.mk
+
 ##### dist
 
 mac.dist.name ?= $(mac.app.name)
@@ -50,11 +55,6 @@ include $(mac.app.builder.mk.dir)/dist.mk
 # build/dist/MyApp-1.0.0 -> "MyApp-1.0.0"
 mac.app.builder.dist.name := $(shell basename $(mac.dist.dir))
 mac.app.builder.dist.dir := $(shell dirname $(mac.dist.dir))
-
-##### notarize
-
-mac.notarize.name ?= $(mac.app.name)
-include $(mac.app.builder.mk.dir)/notarize.mk
 
 ##### zip
 
@@ -73,7 +73,7 @@ include $(mac.app.builder.mk.dir)/dmg.mk
 .PHONY: var
 
 # print all variables
-var: app-var dist-var notarize-var zip-var dmg-var
+var: app-var codesign-var notarize-var dist-var zip-var dmg-var
 	@echo "mac-app-builder version $(mac.app.builder.version)"
 
 # build app by default
@@ -85,5 +85,5 @@ endif
 # clean everything
 ifeq ($(mac.app.target.clean),true)
 .PHONY: clean
-clean: app-clean dist-clean notarize-clean zip-clean dmg-clean
+clean: app-clean notarize-clean dist-clean zip-clean dmg-clean
 endif

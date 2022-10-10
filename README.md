@@ -68,7 +68,7 @@ endif
 
 Run:
 ```shell
-make app dist notarize dmg
+make app notarize dist dmg
 ```
 
 Results in:

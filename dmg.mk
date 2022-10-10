@@ -31,6 +31,10 @@ mac.dmg ?= $(mac.builddir)/$(mac.dmg.name).dmg
 # dmg content src directory
 mac.dmg.dir ?= $(mac.builddir)/dist
 
+# codesign identity, usually a Developer ID Application string
+# default: "-" aka ad-hoc -> replace this with your id for a signed dmg
+mac.codesign.identity ?= -
+
 ##### dmg
 
 .PHONY = dmg dmg-var dmg-clean
@@ -42,9 +46,9 @@ $(mac.dmg):
 	@echo "===== dmg"
 	$(HDIUTIL) create -srcfolder $(mac.dmg.dir) -volname $(mac.dmg.name) -format UDZO -o $(mac.dmg)
 	$(XATTR) -rc "$(mac.dmg)"
-	@if test "x$(mac.codesign.identity)" != "x" ; then \
+	@if test "x$(mac.codesign.identity)" != "x-" ; then \
 		$(CODESIGN) -s "Developer ID Application: $(mac.codesign.identity)" -v $(mac.dmg) ; \
-	fi
+	else echo "warning: codesign identity \"-\", dmg will be unsigned" ; fi
 	@echo "===== dmg: $(mac.dmg)"
 
 # print vars
