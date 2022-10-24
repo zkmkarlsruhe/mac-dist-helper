@@ -3,6 +3,8 @@
 * consolidated separate section files into two makefiles: app export and distribution
 * updated readme for new layout and fleshed out basic targets and usage info
 
+* remove original mac-app-builder combined makefile
+
 0.1.0: 2022 Oct 10
 
 initial version

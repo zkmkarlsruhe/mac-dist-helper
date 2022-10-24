@@ -66,46 +66,47 @@ The mac-dist-helper makefiles are designed to be used for both single-app projec
 ### Makefile-mac-app.mk
 
 Basic targets are:
-* *app*: export a signed app
-* *app-verify*: verify the app is both signed and accepted by the SIP system aka Gatekeeper
-* *app-vars*: print app variables for debugging
-* *app-clean*: clean export directory
-* *app-clobber*: remove app export
+* **app**: export a signed app
+* **app-verify**: verify the app is both signed and accepted by the SIP system aka Gatekeeper
+* **app-vars**: print app variables for debugging
+* **app-clean**: clean export directory
+* **app-clobber**: remove app export
 
 Build files are generated in a temp directory, named `export` by default. The exported app is placed in the calling directory.
 
 ### Makefile-mac-dist.mk
 
 Basic combined meta targets are:
-* *distzip*: create a zip for distribution with notarized contents
-* *distdmg*: create and notarize dmg for distribution
-* *distvars*:: print makefile variables for debugging
-* *distclean*: clean entire dist build directory
-* *distclobber*: clean dist zip and dmg files
+* **distzip**: create a zip for distribution with notarized contents
+* **distdmg**: create and notarize dmg for distribution
+* **distvars**: print makefile variables for debugging
+* **distclean**: clean entire dist build directory
+* **distclobber**: clean dist zip and dmg files
+
+If both makefiles are included, the **distclean** and **distclobber** targets also invoke **app-clean** and **app-clobber**.
 
 Additional targets are available for each subsection, most of which are invoked by the combined targets above:
-* *dist*: copy files into dist dir
-* *dist-vars*: print dist variables for debugging
-* *dist-clean*: clean dist directory
-* *codesign*: codesign files, use manually if not exporting a .app from Xcode
-* *codesign-remove*: remove code signature(s) from files
-* *codesign-verify*: verify code signature(s)
-* *codesign-list*: list available codesign identities
-* *codesign-vars*: print codesign variables for debugging
-* *zip*: create zip
-* *zip-vars*: print zip variables for debugging
-* *zip-clobber*: remove zip file
-* *dmg*: create dmg
-* *dmg-vars*: print dmg variables for debugging
-* *dmg-clobber*: rm dmg file
-* *notarize* and *notarize-dmg*: upload and notarize dmg
-* *notarize-zip*: upload and notarize zip
-* *notarize-verify*: verify signature and acceptance by the SIP system aka Gatekeeper
-* *notarize-history*: print request history
-* *notarize-vars*: print notarize variables for debugging
-* *notarize-clean*: clean notarization directory
-
-*Note: if both makefiles are included, the `distclean` and `distclobber` targets also invoke `app-clean` and `app-clobber`.*
+* **dist**: copy files into dist dir
+* **dist-vars**: print dist variables for debugging
+* **dist-clean**: clean dist directory
+* **codesign**: codesign files, use manually if not exporting a .app from Xcode
+* **codesign-remove**: remove code signature(s) from files
+* **codesign-verify**: verify code signature(s)
+* **codesign-list**: list available codesign identities
+* **codesign-vars**: print codesign variables for debugging
+* **zip**: create zip
+* **zip-vars**: print zip variables for debugging
+* **zip-clobber**: remove zip file
+* **dmg**: create dmg
+* **dmg-vars**: print dmg variables for debugging
+* **dmg-clobber**: rm dmg file
+* **notarize**: alias for **notarize-dmg**
+* **notarize-dmg**: upload and notarize dmg
+* **notarize-zip**: upload and notarize zip
+* **notarize-verify**: verify signature and acceptance by the SIP system aka Gatekeeper
+* **notarize-history**: print request history
+* **notarize-vars**: print notarize variables for debugging
+* **notarize-clean**: clean notarization directory
 
 Build files are generated in a temp directory, named `dist` by default. The distribution zip and dmg files are placed in the calling directory.
 
@@ -230,16 +231,13 @@ Requirements
 
 Minimum requirements:
 
-* Xcode 11 (or equivalent Commandline Tools version)
+* GNU Make 3.8+
+* Xcode 13+ (or equivalent Commandline Tools version)\*
 * Apple Developer account
 * Apple Developer "Development" and "Developer ID application" signing certificates installed
 * App Store Connect 2FA password installed in keychain
 
-Suggested requirements:
-
-* Xcode 13+ (or equivalent Commandline Tools version)
-
-*As of fall 2022, the legacy Xcode 11-12 process using `altool` works but is deprecated.*
+\**For reference, the [Xcode Releases website](https://xcodereleases.com) notes Xcode 13.0 required a minimum of macOS 11.3 (Big Sur).*
 
 Apple Developer Setup
 ---------------------
@@ -269,7 +267,7 @@ This process only needs to be done once on the build system.
 
 *Note: If you want to use the same Apple Developer account and certificates on another build system, you will need to export the private keys used to create the certificates on the original build system and import them on the new one.*
 
-For details, see the [Apple docs](https://developer.apple.com/support/certificates/).
+For details, see the [Apple docs on Certificates](https://developer.apple.com/support/certificates/).
 
 ### App Store Connect password
 
