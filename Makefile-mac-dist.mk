@@ -166,7 +166,7 @@ codesign:
 	fi
 	$(CODESIGN) --force --sign "$(mac.codesign.identity)" $(mac.codesign.entitlements.option) $(mac.codesign)
 
-# remove codesign from files
+# remove code signature(s) from files
 # FIXME: this probably can't handle paths with spaces
 codesign-remove:
 	@echo "===== codesign remove"
@@ -381,20 +381,20 @@ notarize-clean:
 # combined targets
 ##################
 
-# extra clean targets if Makefile-mac-app.mk was included
+# extra targets when Makefile-mac-app.mk is included
 .PHONY: app-var app-clean app-clobber
 
-.PHONY: distvars distzip distdmg distclean distclobber
-
-# print all variables
-distvars: app-vars dist-vars codesign-vars zip-vars dmg-vars notarize-vars
-	@echo "Makefile-mac-dist.mk version $(makefile.mac.dist.version)"
+.PHONY: distzip distdmg distvars distclean distclobber
 
 # create a zip for distribution with notarized contents
 distzip: dist zip notarize-zip zip-clean zip notarize-verify
 
 # create and notarize dmg for distribution
 distdmg: dist dmg notarize-dmg notarize-verify
+
+# print all variables
+distvars: app-vars dist-vars codesign-vars zip-vars dmg-vars notarize-vars
+	@echo "Makefile-mac-dist.mk version $(makefile.mac.dist.version)"
 
 # clean entire dist build directory
 distclean: app-clean
