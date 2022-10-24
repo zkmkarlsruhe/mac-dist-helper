@@ -57,11 +57,11 @@ done
 endef
 
 # upload zip for notarization
-notarize-upload: $(mac.notarizedir)
+notarize-upload: $(mac.notarize.dir)
 	@echo "===== notarize: uploading"
 	$(XCRUN) altool --notarize-app --primary-bundle-id $(mac.notarize.bundleid) \
 	    --password "@keychain:$(mac.notarize.password)" \
-	    --file $(mac.notarizedir)/$(mac.notarize.zip) \
+	    --file $(mac.notarize.dir)/$(mac.notarize.zip) \
 	    --show-progress --output-format xml > $(mac.notarize.uploadinfo)
 
 # manually download request info
@@ -81,12 +81,6 @@ notarize-log:
 	    echo "===== notarize: request in progress or failed..." && false; \
 	fi
 	$(CURL) -o $(mac.notarize.loginfo) $(call mac.notarize.get_log_url)
-
-# staple notarized apps or binaries
-# FIXME: this probably can't handle paths with spaces
-notarize-staple:
-	@echo "===== notarize: staple"
-	for path in $(mac.notarize) ; do $(XCRUN) stapler staple $$path ; done
 
 # print request history
 notarize-history:

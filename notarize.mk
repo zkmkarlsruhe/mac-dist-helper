@@ -42,7 +42,7 @@ mac.notarize.legacy ?= false
 ##### notarize
 
 # temp zip file to upload to notarization servers
-mac.notarize.zip = $(mac.notarize.name).zip
+mac.notarize.zip ?= $(mac.notarize.name).zip
 
 # temp zip file directory
 mac.notarize.zipdir = $(mac.notarize.dir)/$(mac.notarize.name)
@@ -57,7 +57,7 @@ mac.notarize.requestinfo = $(mac.notarize.dir)/RequestInfo.plist
 mac.notarize.loginfo = $(mac.notarize.dir)/LogInfo.json
 
 notarize: notarize-zip notarize-upload notarize-wait \
-              notarize-log notarize-staple
+              notarize-log notarize-staple notarize-verify
 
 .PHONY: notarize notarize-upload notarize-wait notarize-log \
         notarize-staple notarize-info notarize-history \
@@ -82,6 +82,17 @@ $(mac.notarize.dir)/$(mac.notarize.zip): $(mac.notarize.dir)
 notarize-zip-list:
 	@echo "===== notarize zip list"
 	zipinfo -1 $(mac.notarize.dir)/$(mac.notarize.zip)
+
+# staple notarized apps or binaries
+# FIXME: this probably can't handle paths with spaces
+notarize-staple:
+	@echo "===== notarize staple"
+	for path in $(mac.notarize) ; do $(XCRUN) stapler staple "$$path" ; done
+
+# onyl work for .app bundles
+notarize-verify:
+	@echo "===== notarize verify"
+	for path in $(mac.notarize) ; do spctl --assess --verbose "$$path" && echo 1 ; done
 
 # print variables
 notarize-var:

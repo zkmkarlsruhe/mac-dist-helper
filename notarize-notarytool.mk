@@ -72,12 +72,6 @@ notarize-log:
 	    cat $(mac.notarize.loginfo) && false; \
 	fi
 
-# staple notarized apps or binaries
-# FIXME: this probably can't handle paths with spaces
-notarize-staple:
-	@echo "===== notarize: staple"
-	for path in $(mac.notarize) ; do $(XCRUN) stapler staple "$$path" ; done
-
 # print request history
 notarize-history:
 	@echo "===== notarize: history"
