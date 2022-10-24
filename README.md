@@ -110,6 +110,8 @@ Additional targets are available for each subsection, most of which are invoked 
 
 Build files are generated in a temp directory, named `dist` by default. The distribution zip and dmg files are placed in the calling directory.
 
+By default, a single-application project without meta-data will distribute the .app bundle without a containing subdirectory. When additional files are included via the `mac.dist.include` makefile variable, a subdirectory named with the version is used. This can be controlled by the `mac.dist.apponly` variable.
+
 Basic Usage
 -----------
 
@@ -117,7 +119,7 @@ Basic usage involves including either or both makefiles in a parent makefile whi
 
 ### Cocoa Application Example
 
-For a single native macOS Cocoa app called "HelloWorld" which is built from a "HelloWorld.xcodeproj" Xcode project and should be distributed with meta-data text files by the "Foo Bar Baz Developers" Apple Developer account:
+For a single native macOS Cocoa app called "HelloWorld" which is built from a "HelloWorld.xcodeproj" Xcode project and should be distributed without files by the "Foo Bar Baz Developers" Apple Developer account:
 
 ```makefile
 # app name to build (no extension) for Makefile-mac-app.mk
@@ -151,11 +153,9 @@ make app
 make distdmg
 ```
 
-The mounted `HelloWorld-0.1.0` disk image contents should contain the app and meta-data within a version-named subdirectory and a convenience link to `/Applications` for drag-and-drop installation:
+The mounted `HelloWorld-0.1.0` disk image contents should contain the app and a convenience link to `/Applications` for drag-and-drop installation:
 ~~~
-/Volumes/HelloWorld-0.1.0/HelloWorld-0.1.0/HelloWorld.app
-/Volumes/HelloWorld-0.1.0/HelloWorld-0.1.0/README.txt
-/Volumes/HelloWorld-0.1.0/HelloWorld-0.1.0/doc/...
+/Volumes/HelloWorld-0.1.0/HelloWorld.app
 /Volumes/HelloWorld-0.1.0/Applications <--- softlink
 ~~~
 
@@ -171,8 +171,11 @@ mac.dist.libs = foobar.pd_darwin
 # set version string
 mac.dist.version = 1.2.3
 
-# additional file to add to distribution
+# additional files to add to distribution
 mac.dist.include = README.txt LICENSE.txt *.pd
+
+# exclude any of these, .DS_Store and hidden files excluded by default
+mac.dist.exclude = *.tmp
 
 # codesign identity, usually a Developer ID Application string
 mac.codesign.identity = Pd Unicrons LLC
