@@ -146,7 +146,7 @@ mac.codesign ?= $(mac.dist)
 mac.codesign.identity ?= -
 
 # entitlements plist which allows camera access, etc
-mac.codesign.entitlements ?= $(mac.dist.name).entitlements
+mac.codesign.entitlements ?= $(mac.dist.name)/$(mac.dist.name).entitlements
 
 ##### codesign
 
