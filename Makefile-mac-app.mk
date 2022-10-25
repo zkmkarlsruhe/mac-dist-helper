@@ -122,3 +122,7 @@ app-clean:
 # remove app export
 app-clobber: app-clean
 	rm -rf "$(mac.app)"
+
+# for syntax highlighting in vim and github
+# vim: set filetype=make:
+# vim: set tabstop=4

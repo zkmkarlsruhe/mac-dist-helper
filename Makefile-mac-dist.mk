@@ -16,6 +16,7 @@
 # references:
 # * https://developer.apple.com/documentation/security/notarizing_macos_software_before_distribution/customizing_the_notarization_workflow
 # * https://scriptingosx.com/2021/07/notarize-a-command-line-tool-with-notarytool/
+# * https://github.com/neurolabusc/NotarizeC
 # * https://www.gnu.org/software/make/manual/html_node/Text-Functions.html
 
 # makefile version
@@ -139,7 +140,7 @@ dist-clean:
 ##### variables to override
 
 # files to sign
-mac.codesign ?= $(mac.dist)
+mac.codesign ?= $(foreach path,$(mac.dist),$(mac.dist.srcdir)/$(path))
 
 # codesign identity, usually a Developer ID Application string
 # default: "-" aka ad-hoc
@@ -157,6 +158,9 @@ endif
 
 .PHONY: codesign codesign-remove codesign-verify codesign-identities codesign-vars
 
+# note: order is important! ex. dylibs before progs linking them
+# note: codesign objects in *final* dist structure, not the source files
+
 # codesign files
 # FIXME: this probably can't handle paths with spaces
 codesign:
@@ -164,7 +168,7 @@ codesign:
 	@if test "x$(mac.codesign.identity)" = "x-" ; then \
 		echo "warning: signing using ad-hoc identity \"-\"" ; \
 	fi
-	$(CODESIGN) --force --sign "$(mac.codesign.identity)" $(mac.codesign.entitlements.option) $(mac.codesign)
+	$(CODESIGN) --force --options runtime --sign "$(mac.codesign.identity)" $(mac.codesign.entitlements.option) --timestamp $(foreach path,$(mac.dist),$(mac.dist.srcdir)/$(path))
 
 # remove code signature(s) from files
 # FIXME: this probably can't handle paths with spaces
@@ -175,7 +179,10 @@ codesign-remove:
 # verify code signature(s)
 codesign-verify:
 	@echo "===== codesign verify"
-	$(CODESIGN) --display -vv $(mac.codesign)
+	@for path in $(mac.codesign) ; do \
+		echo "=== verify $$path" ; \
+		$(CODESIGN) --verify --deep -vv "$$path" ; \
+	done
 
 # list available codesign identities
 codesign-identities:
@@ -278,7 +285,7 @@ dmg-clobber:
 ##### variables to override
 
 # binaries to notarize
-mac.notarize ?= $(mac.dist)
+mac.notarize ?= $(foreach path,$(mac.dist),$(mac.dist.srcdir)/$(path))
 
 # Keychain profile name for App Store Connect app-specific password
 mac.notarize.profile ?= AC_PASSWORD
@@ -297,13 +304,16 @@ mac.notarize.submit.log = $(mac.notarize.dir)/Submission.log
 # current submission uuid
 mac.notarize.submit.uuid = $(shell grep -m 1 "id:" $(mac.notarize.submit.log) | awk '{print $$2}' || "")
 
+# current submission status, leading whitespace is important!
+mac.notarize.submit.status = $(shell grep -m 1 "  status:" $(mac.notarize.submit.log) | awk '{print $$2}' || "")
+
 # summary log after notarization is finished, either successfully or not
 # check this for details on errors
 mac.notarize.log = $(mac.notarize.dir)/NotarizationSummary.json
 
-notarize-zip: notarize-submit-zip notarize-log notarize-staple
+notarize-zip: notarize-submit-zip notarize-log notarize-status notarize-staple
 
-notarize-dmg: notarize-submit-dmg notarize-log notarize-staple
+notarize-dmg: notarize-submit-dmg notarize-log notarize-status notarize-staple
 
 notarize: notarize-dmg
 
@@ -321,6 +331,9 @@ notarize-submit-zip: $(mac.notarize.dir)
 	$(XCRUN) notarytool submit "$(mac.zip)" \
 	    --keychain-profile "$(mac.notarize.profile)" \
 	    --wait 2>&1 | tee "$(mac.notarize.submit.log)"
+	if [ "$(mac.notarize.submit.status)" != "accepted" ]; then \
+	    echo "===== notarize: zip submission failed..."
+	fi
 
 # upload and notarize dmg
 notarize-submit-dmg: $(mac.notarize.dir)
@@ -339,23 +352,38 @@ notarize-staple:
 	done
 
 # download notarization summary log
-notarize-log:
-	@echo "===== notarize log"
+notarize-log: $(mac.notarize.log)
+$(mac.notarize.log):
 	$(XCRUN) notarytool log $(mac.notarize.submit.uuid) \
-	    --keychain-profile "$(mac.notarize.profile)" 2>&1 | tee "$(mac.notarize.log)"
+	    --keychain-profile "$(mac.notarize.profile)" > "$(mac.notarize.log)"
+
+# check status from logs and exit on error
+notarize-status: $(mac.notarize.log)
+	@echo "===== notarize status"
+	@if [ "$(mac.notarize.submit.status)" != "Accepted" ]; then \
+		echo "submission failed..." ; \
+		cat $(mac.notarize.log) && false ; \
+	else \
+		echo "submission $(mac.notarize.submit.status)" ;  \
+		cat $(mac.notarize.log) ; \
+	fi
 
 # verify signature and acceptance by the SIP system aka Gatekeeper
 notarize-verify:
 	@echo "===== notarize verify"
 	@for path in $(filter-out %.dmg %.zip, $(mac.notarize)) ; do \
 		echo "=== verify codesign $$path" ; \
-		$(CODESIGN) --display -vv "$$path" ; \
+		$(CODESIGN) --verify --deep -vv "$$path" ; \
+	done
+	@for path in $(filter %.app, $(mac.notarize)) ; do \
+		echo "=== verify codesign $$path" ; \
+		$(CODESIGN) --verify --deep -vv "$$path" ; \
 		echo "=== verify notarize $$path" ; \
 		spctl --assess --type exec -v "$$path" ; \
 	done
 	@for path in $(filter %.dmg, $(mac.notarize.submit)) ; do \
 		echo "=== verify codesign $$path" ; \
-		$(CODESIGN) --display -vv "$$path" ; \
+		$(CODESIGN) --verify --deep -vv "$$path" ; \
 		echo "=== verify notarize $$path" ; \
 		spctl --assess --type open --context context:primary-signature -v "$$path" ; \
 	done
@@ -402,3 +430,7 @@ distclean: app-clean
 
 # clean dist zip and dmg files
 distclobber: app-clobber zip-clobber dmg-clobber
+
+# for syntax highlighting in vim and github
+# vim: set filetype=make:
+# vim: set tabstop=4
