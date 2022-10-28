@@ -8,7 +8,7 @@
 # For information on usage and redistribution, and for a DISCLAIMER OF ALL
 # WARRANTIES, see the file, "LICENSE.txt," in this distribution.
 #
-# This code has been developed at ZKM | Hertz-Lab as part of "The Intelligent 
+# This code has been developed at ZKM | Hertz-Lab as part of "The Intelligent
 # Museum" generously funded by the German Federal Cultural Foundation.
 #
 # See https://github.com/zkmkarlsruhe/mac-dist-helper
