@@ -89,7 +89,7 @@ mac.app.project.config ?= Release
 # xcode build scheme
 mac.app.project.scheme ?= $(mac.app.name)
 
-app: $(mac.app) app-verify
+app: $(mac.app)
 
 # export a signed app
 $(mac.app): | $(mac.builddir)
@@ -171,7 +171,7 @@ endif
 
 .PHONY: distdir distdir-clean
 
-distdir: $(mac.dist.dir)
+distdir: predistdir $(mac.dist.dir) postdistdir
 
 # copy files into dist dir
 # FIXME: this probably can't handle paths with spaces
@@ -184,6 +184,12 @@ $(mac.dist.dir): $(mac.builddir)
 # clean dist directory
 distdir-clean:
 	rm -rf $(mac.dist.dir)
+
+# called before creating dist dir
+predistdir::
+
+# called after creating dist dir
+postdistdir::
 
 ## codesign ####################################################################
 
@@ -212,7 +218,7 @@ endif
 codesign:
 	@echo "===== codesign"
 	@if test "$(mac.codesign.identity)" = "-" ; then echo "warning: signing using ad-hoc identity \"-\"" ; fi
-	codesign --sign "$(mac.codesign.identity)" $(mac.codesign.flags) $(mac.codesign)
+	codesign --sign "Developer ID Application: $(mac.codesign.identity)" $(mac.codesign.flags) $(mac.codesign)
 
 # verify code signature(s)
 codesign-verify:
@@ -279,7 +285,7 @@ $(mac.dmg):
 	rm -f $(mac.dmg.dir)/Applications
 	xattr -rc $(mac.dmg)
 	@if test "$(mac.codesign.identity)" != "-" ; then \
-		codesign --sign "$(mac.codesign.identity)" --timestamp -v $(mac.dmg) ; \
+		codesign --sign "Developer ID Application: $(mac.codesign.identity)" --timestamp -v $(mac.dmg) ; \
 	else echo "warning: ad-hoc codesign identity \"-\", dmg will be unsigned" ; fi
 
 # rm dmg
