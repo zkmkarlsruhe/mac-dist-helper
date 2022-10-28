@@ -377,7 +377,7 @@ Requirements
 
 Minimum requirements:
 
-* GNU Make 3.8+
+* GNU Make 3.81+ (2006)
 * Xcode 13+ (or equivalent Commandline Tools version)\*
 * Apple Developer account
 * Apple Developer "Development" and "Developer ID application" signing certificates installed

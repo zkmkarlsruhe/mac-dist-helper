@@ -1,5 +1,7 @@
 0.3.0: 2022 Oct 28
 
+* added min make version check
+
 * further slimmed and re-consolidated into single makefile
 
 * removed variable print targets

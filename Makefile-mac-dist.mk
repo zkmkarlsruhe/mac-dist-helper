@@ -22,6 +22,11 @@
 # makefile version
 makefile.mac.dist.version = 0.3.0
 
+# require make 3.81 as a minimum for modern functions like $(info), etc
+ifneq ($(firstword $(sort 3.81 $(MAKE_VERSION))), 3.81)
+  $(error GNU make version 3.81 or higher is required)
+endif
+
 # base app name, if building simple app
 mac.app.name ?=
 
