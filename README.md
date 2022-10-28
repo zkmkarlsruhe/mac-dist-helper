@@ -37,6 +37,8 @@ Quick Start
 
 The signed disk image can be distributed to users who should be able to mount it and copy the project directory to `/Applications` or wherever.
 
+For examples see: https://github.com/zkmkarlsruhe/mac-dist-helper-examples
+
 Notarization Process
 --------------------
 
@@ -109,7 +111,7 @@ make clean dist-clean dist-clobber
 Usage
 -----
 
-Basic usage involves including either or both makefiles in a parent makefile which sets required variables. 
+Basic usage involves including either or both makefiles in a parent makefile which sets required variables.
 
 ### Cocoa Application
 
@@ -371,6 +373,15 @@ Documentation
 -------------
 
 Detailed documentation for the makefile variables and targets are currently provided by comments in each makefile component.
+
+Additionally, there is a separate repository with examples various project types:
+
+* Cocoa app
+* openFrameworks application
+* console programs
+* Pure Data external
+
+https://github.com/zkmkarlsruhe/mac-dist-helper-examples
 
 Requirements
 ------------
