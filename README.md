@@ -1,7 +1,7 @@
 mac-dist-helper
 ===============
 
-Helper makefiles for exporting & packaging macOS binaries for distribution
+Helper makefile for exporting & packaging macOS binaries for distribution
 
 This code base has been developed by [ZKM | Hertz-Lab](https://zkm.de/en/about-the-zkm/organization/hertz-lab) as part of the project [»The Intelligent Museum«](#the-intelligent-museum).
 
@@ -20,7 +20,7 @@ Description
 
 Building macOS applications is relatively easy using Xcode, however notarizing and packaging is more or less "left up to the developer." You can quickly build a .app *but* copying it to another computer either results in the app not running and/or security warnings presented to the user. The notarization process introduced by Apple requires binaries from a known developer account to be verified before running. In order to notarize a project, the project's *signed* binaries need to be uploaded to Apple via the toolchain included with Xcode, either `altool` (legacy) or `notarytool`. Oi, what a pain!
 
-This set of makefiles automates the creation of a project distribution as well as the signing and notarization required by Apple to avoid the "malicious software" warning on systems running macOS 10.15+. Basically, give the makefile the name of your app or list of binaries, codesign identity, App Store Connect password\*, as well as additional package files (readmes, resources, etc) and the makefile will do the rest.
+This makefile automates the creation of a project distribution as well as the signing and notarization required by Apple to avoid the "malicious software" warning on systems running macOS 10.15+. Basically, give the makefile the name of your app or list of binaries, codesign identity, App Store Connect password\*, as well as additional package files (readmes, resources, etc) and the makefile will do the rest.
 
 The tools originated in custom makefiles for the distribution of [Zirkonium3](http://zkm.de/zirkonium) and the need to easily build and distribute experimental macOS applications made using [openFrameworks](https://openframeworks.cc).
 
@@ -29,10 +29,10 @@ The tools originated in custom makefiles for the distribution of [Zirkonium3](ht
 Quick Start
 -----------
 
-1. Copy either `Makefile-mac-app.mk` file into your project or include this repo as a submodule or subtree.
-2. Include either `Makefile-mac-app.mk` and/or `Makefile-mac-dist.mk` file into a parent makefile and set the minimum require variables such as `mac.app.name` or `mac.dist.name`.
-3. Set up the Apple Developer certificates and App Store Connect password in oyur keychain, see the Requirements section.
-4. Run the makefile targets: `make distdmg`
+1. Copy `Makefile-mac-dist.mk` file into your project or include this repo as a submodule or subtree.
+2. Include `Makefile-mac-dist.mk` file into a parent makefile and set the minimum require variables such as `mac.app.name` or `mac.dist.name`.
+3. Set up the Apple Developer certificates and App Store Connect password in your keychain, see the Requirements section.
+4. Run the makefile targets: `make app` or `make all`, then `make dist-dmg`
 5. Grab a coffee and hopefully there is a signed and notarized `.dmg` disk image waiting for you.
 
 The signed disk image can be distributed to users who should be able to mount it and copy the project directory to `/Applications` or wherever.
@@ -44,73 +44,67 @@ As of fall 2022, the basic notarization process is:
 
 1. Build project
 2. Sign application/binaries with Apple Developer account
-3. Submit application/binaries to Apple servers for notarization and wait (can be about 5 minutes)
+3. Submit application/binaries to Apple servers for notarization and wait a couple of minutes
 4. Staple "ticket" to dmg and application/binaries on success
-5. If distributing via .zip, re-build zip with newly notarized binaries
+5. If distributing via zip, re-build zip with newly notarized binaries
 
 For details on the notarization process and how the tools used are wrapped by the makefiles, see the Apple docs on notarizaing macOS software before distribution: [Customizing the Notarization Workflow (Xcode 13+)](https://developer.apple.com/documentation/security/notarizing_macos_software_before_distribution/customizing_the_notarization_workflow).
 
 Layout
 ------
 
-The mac-dist-helper makefiles are designed to be used for both single-app projects as well as distributable libraries and each component is provided as a separate makefile to be integrated within more complex projects:
+The mac-dist-helper makefile is designed to be used for both single-app projects as well as distributable libraries and is designed to be integrated within more complex projects.
 
-* Makefile-mac-app.mk: build a single macOS .app from an Xcode project as an signed archive export
-* Makefile-mac-dist.mk: assemble distribution zip or notarized dmg
-    - dist: assemble files for distribution, can be single .app or directory with multiple files and subdirs
-    - codesign: codesign files which are not signed via Xcode, ie. non-Xcode makefile builds
-    - zip: package distribution as a zip file
-    - dmg: package distribution as a (signed) macOS disk image
-    - notarize: upload zip or dmg to Apple servers for notarization then staple ticket on success
-
-### Makefile-mac-app.mk
-
-Basic targets are:
-* **app**: export a signed app
-* **app-verify**: verify the app is both signed and accepted by the SIP system aka Gatekeeper
-* **app-vars**: print app variables for debugging
-* **app-clean**: clean export directory
-* **app-clobber**: remove app export
-
-Build files are generated in a temp directory, named `export` by default. The exported app is placed in the calling directory.
+Makefile-mac-dist.mk: assemble distribution zip or notarized dmg
+* distdir: assemble files for distribution, can be single .app or directory with multiple files and subdirs
+* codesign: codesign files which are not signed via Xcode, ie. non-Xcode makefile console and lib builds
+* zip: package distribution as a zip file
+* dmg: package distribution as a (signed) macOS disk image
+* notarize: upload zip or dmg to Apple servers for notarization then staple ticket on success
+* staple: staple notarized binaries and dmg
+* verify: verify signature and acceptance by the SIP system aka Gatekeeper
 
 ### Makefile-mac-dist.mk
 
 Basic combined meta targets are:
-* **distzip**: create a zip for distribution with notarized contents
-* **distdmg**: create and notarize dmg for distribution
-* **distvars**: print makefile variables for debugging
-* **distclean**: clean entire dist build directory
-* **distclobber**: clean dist zip and dmg files
-
-If both makefiles are included, the **distclean** and **distclobber** targets also invoke **app-clean** and **app-clobber**.
+* **dist-zip**: create a zip for distribution with notarized contents
+* **dist-dmg**: create and notarize dmg for distribution
+* **dist-clean**: clean entire dist build directory
+* **dist-clobber**: clean app and dist zip and dmg files
 
 Additional targets are available for each subsection, most of which are invoked by the combined targets above:
-* **dist**: copy files into dist dir
-* **dist-vars**: print dist variables for debugging
-* **dist-clean**: clean dist directory
+* **app**: export a signed app
+* **app-verify**: verify the app is both signed and accepted by the SIP system aka Gatekeeper
+* **app-clean**: remove app export
+* **distdir**: copy files into dist dir
+* **distdir-clean**: clean dist directory
 * **codesign**: codesign files, use manually if not exporting a .app from Xcode
-* **codesign-remove**: remove code signature(s) from files
 * **codesign-verify**: verify code signature(s)
-* **codesign-list**: list available codesign identities
-* **codesign-vars**: print codesign variables for debugging
+* **codesign-identities**: list available codesign identities
 * **zip**: create zip
-* **zip-vars**: print zip variables for debugging
-* **zip-clobber**: remove zip file
+* **zip-clean**: remove zip file
 * **dmg**: create dmg
-* **dmg-vars**: print dmg variables for debugging
-* **dmg-clobber**: rm dmg file
+* **dmg-clean**: rm dmg file
 * **notarize**: alias for **notarize-dmg**
 * **notarize-dmg**: upload and notarize dmg
 * **notarize-zip**: upload and notarize zip
-* **notarize-verify**: verify signature and acceptance by the SIP system aka Gatekeeper
 * **notarize-history**: print request history
-* **notarize-vars**: print notarize variables for debugging
-* **notarize-clean**: clean notarization directory
+* **staple**: staple notarized binaries and dmg
+* **verify**: verify signature and acceptance by the SIP system aka Gatekeeper
 
-Build files are generated in a temp directory, named `dist` by default. The distribution zip and dmg files are placed in the calling directory.
+Build files are generated in a temp directory, named `dist` by default. Single app export and distribution zip and dmg files are placed in the calling directory.
 
 By default, a single-application project without meta-data will distribute the .app bundle without a containing subdirectory. When additional files are included via the `mac.dist.include` makefile variable, a subdirectory named with the version is used. This can be controlled by the `mac.dist.apponly` variable.
+
+The single-app export targets do nothing if the `mac.app.name` and/or `mac.app` variables are not set.
+
+The `codesign` targets do nothing if there are no console programs or libraries set via the `mac.dist.progs` and `mac.dist.libs` variables.
+
+To perform a full clean:
+
+```shell
+make clean dist-clean dist-clobber
+```
 
 Usage
 -----
@@ -122,13 +116,8 @@ Basic usage involves including either or both makefiles in a parent makefile whi
 For a single native macOS Cocoa app called "HelloWorld" which is built from a "HelloWorld.xcodeproj" Xcode project and should be distributed without files by the "Foo Bar Baz Developers" Apple Developer account:
 
 ```makefile
-# app name to build (no extension) for Makefile-mac-app.mk
+# app name to build (no extension)
 mac.app.name = HelloWorld
-
-# dist name and app for Makefile-mac-dist.mk,
-# define these if not using Makefile-mac-app.mk
-#mac.dist.name = HelloWorld
-#mac.dist.apps = $(mac.dist.name).app
 
 # set version string
 mac.dist.version = 0.1.0
@@ -139,10 +128,12 @@ mac.dist.include = README.txt doc
 # exclude any of these, .DS_Store and hidden files excluded by default
 mac.dist.exclude = *.tmp
 
+# add link to /Applications in dmg
+mac.dmg.appslink = true
+
 # codesign identity, usually a Developer ID Application string
 mac.codesign.identity = Foo Bar Baz Developers
 
-include Makefile-mac-app.mk
 include Makefile-mac-dist.mk
 ```
 
@@ -154,8 +145,7 @@ In the HelloWorld Xcode project Signing & Capabilities settings, the following s
 Assuming the relevant Apple Developer signing certificates and App Store Connect password are installed (see following Requirements section), running the following will export a release archive and create a notarized `HelloWorld-0.1.0.dmg`:
 
 ```shell
-make app
-make distdmg
+make app dist-dmg
 ```
 
 The mounted `HelloWorld-0.1.0` disk image contents should contain the app and a convenience link to `/Applications` for drag-and-drop installation:
@@ -169,11 +159,11 @@ The mounted `HelloWorld-0.1.0` disk image contents should contain the app and a 
 The process for an [openFrameworks](https://openframeworks.cc) application is similar to that for a Cococa application except for several important points:
 * openFrameworks projects use the "APPNAME Release" and "APPNAME Debug" naming, so the default `mac.app.project.scheme` variable needs to be overridden.
 * The `bin/data` directory needs to included, unless the application is including this within its internal `Resources` directory (not by default)
-* The mac-dist-helper variables and includes can be appended to the Makefile generated by the OF ProjectGenerator.
+* The mac-dist-helper variables and includes can be appended to the Makefile generated by the OF ProjectGenerator
 
 Additionally, in the Xcode project Signing & Capabilities settings:
 * enable Automatically manage signing for Release and set the team
-* enable Hardened Runtime, if not set (default for Xcode 14+)
+* enable Hardened Runtime, if not set
 
 A basic makefile for an openFrameworks application called `FooInteractive` might be:
 ```makefile
@@ -191,7 +181,7 @@ endif
 # call the project makefile!
 include $(OF_ROOT)/libs/openFrameworksCompiled/project/makefileCommon/compile.project.mk
 
-##### mac-dist-helper
+##### Makefile-mac-dist.mk
 
 # app name to build
 mac.app.name = FooInteractive
@@ -202,18 +192,19 @@ mac.app.project.scheme = $(mac.app.name) Release
 # include openFrameworks project data
 mac.dist.include = bin/data
 
+# add link to /Applications in dmg
+mac.dmg.appslink = true
+
 # codesign identity, usually a Developer ID Application string
 mac.codesign.identity = Media Pirates
 
-include Makefile-mac-app.mk
 include Makefile-mac-dist.mk
 ```
 
-Before building for distribution, make sure the OF lib itself is built by building the application once in Release mode with either Xcode or via `make` as `make app` doesn't do this. The build the app export and notarized dmg with:
+Before building for distribution, make sure the OF lib itself is built by building the application once in Release mode with either Xcode or via `make` as `make app` doesn't do this. Then build the app export and notarized dmg with:
 
 ```shell
-make app
-make distdmg
+make all app dist-dmg
 ```
 
 ### Dynamic Library
@@ -221,18 +212,31 @@ make distdmg
 For a dynamic library such as a [Pure Data](https://puredata.info) external built from C sources as a renamed `.dylib` called `foobar.pd_darwin` which should be distributed with meta-data files by the "Pd Unicorns LLC" Apple Developer account:
 
 ```makefile
+# library name
+lib.name = foobar
 
-mac.dist.name = foobar
-mac.dist.libs = foobar.pd_darwin
+# input source file (class name == source file basename)
+class.sources = foobar.c
+
+# all extra files to be included in binary distribution of the library
+datafiles = README.txt LICENSE.txt foobar-help.pd
+
+PDLIBBUILDER_DIR=.
+include $(PDLIBBUILDER_DIR)/Makefile.pdlibbuilder
+
+##### Makefile-mac-dist.mk
+
+# package name
+mac.dist.name = $(lib.name)
 
 # set version string
 mac.dist.version = 1.2.3
 
-# additional files to add to distribution
-mac.dist.include = README.txt LICENSE.txt *.pd
+# binary libs
+mac.dist.libs = $(classes.executables)
 
-# exclude any of these, .DS_Store and hidden files excluded by default
-mac.dist.exclude = *.tmp
+# things to include with libs
+mac.dist.include = $(datafiles) $(datadirs)
 
 # codesign identity, usually a Developer ID Application string
 mac.codesign.identity = Pd Unicorns LLC
@@ -244,23 +248,20 @@ mac.dmg.name=$(mac.dist.name.version)-macos-$(shell uname -m)
 mac.zip.name=$(mac.dist.name.version)-macos-$(shell uname -m)
 ```
 
+In this case, the external is built using the [pd-lib-builder](https://github.com/pure-data/pd-lib-builder) and the mac-dist-help variables are set using those from pd-lib-builder.
+
 Similar to `HelloWorld`, create a notarized `foobar-1.2.3-macos-arm64.dmg` with:
 
 ```shell
-make
-make dist codesign
-make distdmg
+make all dist-dmg
 ```
 
-*Note: The separate `dist` and `codesign` targets are important to call before `distdmg` if the program is built without Xcode, as code signing needs to be performed manually on the binaries in the `dist` temp directory before creating a dmg or zip.*
-
-The mounted `foobar-1.2.3-macos-arm64` disk image contents should contain the lib(s) and meta-data within a version-named subdirectory and a convenience link to `/Applications` for drag-and-drop installation:
+The mounted `foobar-1.2.3-macos-arm64` disk image contents should contain the lib(s) and meta-data within a version-named subdirectory:
 ~~~
 /Volumes/foobar-1.2.3-macos-arm64/foobar-1.2.3/foobar.pd_darwin
 /Volumes/foobar-1.2.3-macos-arm64/foobar-1.2.3/README.txt
 /Volumes/foobar-1.2.3-macos-arm64/foobar-1.2.3/LICENSE.txt
-/Volumes/foobar-1.2.3-macos-arm64/foobar-1.2.3/*.pd...
-/Volumes/foobar-1.2.3-macos-arm64/Applications <--- softlink
+/Volumes/foobar-1.2.3-macos-arm64/foobar-1.2.3/foobar-help.pd
 ~~~
 
 ### Console Program
@@ -342,7 +343,7 @@ HELLO = hello
 LIBGREET = libgreet.dylib
 ...
 
-##### packaging & distribution
+##### Makefile-mac-dist.mk
 
 mac.dist.name = hello
 mac.dist.progs = $(HELLO)
@@ -360,19 +361,10 @@ mac.codesign.entitlements = hello.entitlements
 include Makefile-mac-dist.mk
 ```
 
-Build for distribution by building the :
+Build for distribution by building the:
 
 ```shell
-make
-make dist codesign distdmg
-```
-
-The separate `dist` and `codesign` targets are important to call before `distdmg` if the program is built without Xcode, so code signing needs to be performed manually on the binaries in the `dist` temp directory before creating a dmg or zip.
-
-If encountering errors, do a full clean with:
-
-```shell
-make clean distclean distclobber
+make all dist-dmg
 ```
 
 Documentation
@@ -487,7 +479,7 @@ bin/data/image.jpg
 
 This application will run fine on the build system, however if the bin folder is copied to another system via a zip file, it will not be able to locate the `data` folder.
 
-The best solution is to avoid App Translocation altogether by packaging the application and it's data within a signed disk image. This is the default action when invoking `make notarize`.
+The best solution is to avoid App Translocation altogether by packaging the application and it's data within a signed disk image.
 
 Tips
 ----

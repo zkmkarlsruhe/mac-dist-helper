@@ -11,7 +11,7 @@
 # This code has been developed at ZKM | Hertz-Lab as part of "The Intelligent 
 # Museum" generously funded by the German Federal Cultural Foundation.
 #
-# See https://github.com/zkmkarlsruhe/mac-dist-makefiles
+# See https://github.com/zkmkarlsruhe/mac-dist-helper
 
 # references:
 # * https://developer.apple.com/documentation/security/notarizing_macos_software_before_distribution/customizing_the_notarization_workflow
@@ -20,39 +20,19 @@
 # * https://www.gnu.org/software/make/manual/html_node/Text-Functions.html
 
 # makefile version
-makefile.mac.dist.version = 0.2.0
+makefile.mac.dist.version = 0.3.0
 
-XCRUN ?= /usr/bin/xcrun
-XCBUILD ?= /usr/bin/xcodebuild
-RSYNC ?= /usr/bin/rsync
-CODESIGN ?= /usr/bin/codesign
-HDIUTIL ?= /usr/bin/hdiutil
-XATTR ?= /usr/bin/xattr
-
-# use "ditto -c -k --keepParent" instead of zip -r" which invalidates sigs
-DITTO ?= /usr/bin/ditto
-
-##### shared variables to override
-
-# temp root build dir
-mac.builddir ?= dist
-
-################################################################################
-# dist
-######
-
-##### required variables
+# base app name, if building simple app
+mac.app.name ?=
 
 # base dist name, required
-# try using mac.app.name if Makefile-mac-app.mk was included
 mac.dist.name ?= $(mac.app.name)
 ifeq ($(mac.dist.name),)
 $(error required mac.dist.name not set...)
 endif
 
 # macOS app bundles (.app)
-# try using mac.app if Makefile-mac-app.mk was included
-mac.dist.apps ?= $(mac.app)
+mac.dist.apps ?=
 
 # console programs
 mac.dist.progs ?=
@@ -60,16 +40,96 @@ mac.dist.progs ?=
 # dynamic libraries (.dylib)
 mac.dist.libs ?=
 
+# temp root build dir
+mac.builddir ?= dist
+
+## combined targets ############################################################
+
+$(mac.builddir):
+	mkdir -p $@
+
+.PHONY: dist dist-zip dist-dmg dist-clean dist-clobber
+
+# create a zip for distribution with notarized contents
+dist-zip: distdir codesign zip notarize-zip staple zip-clean zip verify
+
+# create and notarize dmg for distribution
+dist-dmg: distdir codesign dmg notarize-dmg staple verify
+
+# clean entire dist build directory
+dist-clean:
+	rm -rf $(mac.builddir)
+
+# clean all dist outputs
+dist-clobber: app-clean zip-clean dmg-clean
+
+## app #########################################################################
+
+# output single app?
+mac.app ?= $(mac.app.name).app
+
+.PHONY: app app-verify app-clean
+
+# single app specified...
+ifneq ($(mac.app.name)$(mac.app),.app)
+
+mac.dist.apps += $(mac.app)
+
+# xcode project
+mac.app.project ?= $(mac.app.name).xcodeproj
+
+# xcode build config: Debug or Release
+mac.app.project.config ?= Release
+
+# xcode build scheme
+mac.app.project.scheme ?= $(mac.app.name)
+
+app: $(mac.app) app-verify
+
+# export a signed app
+$(mac.app): | $(mac.builddir)
+	@echo "===== app"
+	echo '<?xml version="1.0" encoding="UTF-8"?>\n\
+	<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n\
+	<plist version="1.0">\n\
+	<dict>\n\
+	    <key>method</key>\n\
+	    <string>developer-id</string>\n\
+	</dict>\n\
+	</plist>' > $(mac.builddir)/ExportOptions.plist
+	xcodebuild -project $(mac.app.project) \
+	           -config "$(mac.app.project.config)" \
+	           -scheme "$(mac.app.project.scheme)" \
+	           -archivePath $(mac.builddir)/$(mac.app.name).xcarchive archive
+	xcodebuild -exportArchive -archivePath $(mac.builddir)/$(mac.app.name).xcarchive \
+	           -exportOptionsPlist $(mac.builddir)/ExportOptions.plist -exportPath $(mac.builddir)
+	mv $(mac.builddir)/$@ .
+
+# verify the app is both signed and accepted by the SIP system aka Gatekeeper
+app-verify: $(mac.app)
+	@echo "===== app verify"
+	codesign --verify --display -vv $<
+	spctl --assess --type exec -v $<
+
+app-clean:
+	rm -rf $(mac.app)
+
+else # ... nothing to do
+app:
+app-verify:
+app-clean:
+endif
+
+## distdir #####################################################################
+
+# temp dist dir
+mac.dist.dir ?= $(mac.builddir)/dist
+
 # main app or binaries to distribute (relative to main makefile dir)
 mac.dist ?= $(strip $(mac.dist.apps) $(mac.dist.progs) $(mac.dist.libs))
 ifeq ($(words $(mac.dist)), 0)
 $(error required mac.dist empty! nothing to do...)
 endif
-
-##### variables to override
-
-# temp dist dir
-mac.dist.dir ?= $(mac.builddir)/dist
 
 # dist version, ex. "1.2.3"
 mac.dist.version ?=
@@ -93,113 +153,78 @@ ifneq ($(words $(mac.dist)) $(words $(mac.dist.apps)) $(words $(mac.dist.include
 mac.dist.apponly = false
 endif
 
-##### dist
-
-# dist rsync subdir and zip/dmg srcdir
+# rsync dest subdir and zip/dmg srcdir
 # * apponly true: .app bundle
 # * apponly false: named subdir
-ifeq ($(mac.dist.apponly),true)
+ifeq ($(mac.dist.apponly),true) # single app
 mac.dist.subdir = $(mac.dist.dir)
-mac.dist.srcdir = $(mac.dist.dir)/$(mac.dist.apps)
+mac.dist.srcdir = $(mac.dist.dir)/$(firstword $(mac.dist.apps))
 else
 mac.dist.subdir = $(mac.dist.dir)/$(mac.dist.name.version)
 mac.dist.srcdir = $(mac.dist.dir)/$(mac.dist.name.version)
 endif
 
-.PHONY: dist dist-vars dist-clean
+.PHONY: distdir distdir-clean
 
-dist: $(mac.dist.dir)
+distdir: $(mac.dist.dir)
 
 # copy files into dist dir
 # FIXME: this probably can't handle paths with spaces
-$(mac.dist.dir):
-	@echo "===== dist"
-	mkdir -p "$@"
-	$(RSYNC) -a \
-		--exclude ".*" --exclude=".DS_Store" $(foreach exc,$(mac.dist.exclude), --exclude="$(exc)") \
+$(mac.dist.dir): $(mac.builddir)
+	@echo "===== distdir"
+	mkdir -p $(mac.dist.subdir)
+	rsync -a --exclude ".*" $(foreach exc,$(mac.dist.exclude), --exclude="$(exc)") \
 		$(mac.dist) $(mac.dist.include) $(mac.dist.subdir)
 
-# print variables
-dist-vars:
-	@echo "mac.dist: $(mac.dist)"
-	@echo "mac.dist.dir: $(mac.dist.dir)"
-	@echo "mac.dist.name: $(mac.dist.name)"
-	@echo "mac.dist.version: $(mac.dist.version)"
-	@echo "mac.dist.include: $(mac.dist.include)"
-	@echo "mac.dist.exclude: $(mac.dist.exclude)"
-	@echo "mac.dist.apponly: $(mac.dist.apponly)"
-
 # clean dist directory
-dist-clean:
+distdir-clean:
 	rm -rf $(mac.dist.dir)
 
-################################################################################
-# codesign
-##########
-
-##### variables to override
+## codesign ####################################################################
 
 # files to sign
-mac.codesign ?= $(foreach path,$(mac.dist),$(mac.dist.srcdir)/$(path))
+mac.codesign ?= $(foreach path,$(mac.dist.progs) $(mac.dist.libs),$(mac.dist.srcdir)/$(path))
 
 # codesign identity, usually a Developer ID Application string
 # default: "-" aka ad-hoc
 mac.codesign.identity ?= -
 
+.PHONY: codesign codesign-verify codesign-identities
+
+# codesign programs and libs
+ifneq ($(mac.codesign),)
+
 # entitlements plist which allows camera access, etc
 mac.codesign.entitlements ?= $(mac.dist.name)/$(mac.dist.name).entitlements
 
-##### codesign
-
 # don't apply entitlements if not available
-ifeq ($(shell test -e "$(mac.codesign.entitlements)" && echo "true"),true)
-mac.codesign.entitlements.option = --entitlements "$(mac.codesign.entitlements)"
+mac.codesign.flags = --force --options runtime --timestamp
+ifneq ($(wildcard $(mac.codesign.entitlements)),)
+mac.codesign.flags += --entitlements $(mac.codesign.entitlements)
 endif
 
-.PHONY: codesign codesign-remove codesign-verify codesign-identities codesign-vars
-
-# note: order is important! ex. dylibs before progs linking them
-# note: codesign objects in *final* dist structure, not the source files
-
-# codesign files
-# FIXME: this probably can't handle paths with spaces
+# codesign non-apps
 codesign:
 	@echo "===== codesign"
-	@if test "x$(mac.codesign.identity)" = "x-" ; then \
-		echo "warning: signing using ad-hoc identity \"-\"" ; \
-	fi
-	$(CODESIGN) --force --options runtime --sign "$(mac.codesign.identity)" $(mac.codesign.entitlements.option) --timestamp $(foreach path,$(mac.dist),$(mac.dist.srcdir)/$(path))
-
-# remove code signature(s) from files
-# FIXME: this probably can't handle paths with spaces
-codesign-remove:
-	@echo "===== codesign remove"
-	$(CODESIGN) --remove-signature $(mac.codesign)
+	@if test "$(mac.codesign.identity)" = "-" ; then echo "warning: signing using ad-hoc identity \"-\"" ; fi
+	codesign --sign "$(mac.codesign.identity)" $(mac.codesign.flags) $(mac.codesign)
 
 # verify code signature(s)
 codesign-verify:
 	@echo "===== codesign verify"
-	@for path in $(mac.codesign) ; do \
-		echo "=== verify $$path" ; \
-		$(CODESIGN) --verify --deep -vv "$$path" ; \
-	done
+	codesign --verify --deep -vv $(mac.codesign)
+
+else # nothing to do
+codesign:
+codesign-verify:
+endif
 
 # list available codesign identities
 codesign-identities:
 	@echo "===== codesign identities"
 	security find-identity -p basic -v
 
-# print variables
-codesign-vars:
-	@echo "mac.codesign: $(mac.codesign)"
-	@echo "mac.codesign.identity: $(mac.codesign.identity)"
-	@echo "mac.codesign.entitlements: $(mac.codesign.entitlements)"
-
-################################################################################
-# zip
-#####
-
-##### variables to override
+## zip #########################################################################
 
 # base zip name
 mac.zip.name ?= $(mac.dist.name.version)
@@ -210,33 +235,20 @@ mac.zip ?= $(mac.zip.name).zip
 # zip content src directory
 mac.zip.dir ?= $(mac.dist.srcdir)
 
-##### zip
-
-.PHONY: zip-list zip-vars zip-clean
+.PHONY: zip zip-clean
 
 zip: $(mac.zip)
 
 # create zip
 $(mac.zip):
 	@echo "===== zip"
-	$(DITTO) -c -k --keepParent "$(mac.zip.dir)" "$(mac.zip)"
-	@echo "===== zip: $(mac.zip)"
-
-# print variables
-zip-vars:
-	@echo "mac.zip: $(mac.zip)"
-	@echo "mac.zip.name: $(mac.zip.name)"
-	@echo "mac.zip.dir: $(mac.zip.dir)"
+	ditto -c -k --keepParent $(mac.zip.dir) $(mac.zip)
 
 # rm zip
-zip-clobber:
+zip-clean:
 	rm -f $(mac.zip)
 
-################################################################################
-# dmg
-#####
-
-##### variables to override
+## dmg #########################################################################
 
 # base dmg name
 mac.dmg.name ?= $(mac.dist.name.version)
@@ -248,41 +260,28 @@ mac.dmg ?= $(mac.dmg.name).dmg
 mac.dmg.dir ?= $(mac.dist.srcdir)/..
 
 # add a convenience link to /Applications inside the dmg?
-mac.dmg.applications ?= true
+mac.dmg.appslink ?= false
 
-##### dmg
-
-.PHONY = dmg ddmg-verify dmg-vars dmg-clean
+.PHONY: dmg ddmg-verify dmg-clean
 
 dmg: $(mac.dmg)
 
 # create dmg
 $(mac.dmg):
 	@echo "===== dmg"
-	@if test "x$(mac.dmg.applications)" = "xtrue" ; then ln -s /Applications "$(mac.dmg.dir)/Applications" ; fi
-	$(HDIUTIL) create -srcfolder "$(mac.dmg.dir)" -volname "$(mac.dmg.name)" -format UDZO -o "$(mac.dmg)"
-	rm -f "$(mac.dmg.dir)/Applications"
-	$(XATTR) -rc "$(mac.dmg)"
-	@if test "x$(mac.codesign.identity)" != "x-" ; then \
-		$(CODESIGN) --sign "Developer ID Application: $(mac.codesign.identity)" --timestamp -v "$(mac.dmg)" ; \
+	@if test "$(mac.dmg.appslink)" = "true" ; then ln -s /Applications $(mac.dmg.dir)/Applications ; fi
+	hdiutil create -srcfolder $(mac.dmg.dir) -volname "$(mac.dmg.name)" -format UDZO -o $(mac.dmg)
+	rm -f $(mac.dmg.dir)/Applications
+	xattr -rc $(mac.dmg)
+	@if test "$(mac.codesign.identity)" != "-" ; then \
+		codesign --sign "$(mac.codesign.identity)" --timestamp -v $(mac.dmg) ; \
 	else echo "warning: ad-hoc codesign identity \"-\", dmg will be unsigned" ; fi
-	@echo "===== dmg: $(mac.dmg)"
-
-# print vars
-dmg-vars:
-	@echo "mac.dmg: $(mac.dmg)"
-	@echo "mac.dmg.name: $(mac.dmg.name)"
-	@echo "mac.dmg.dir: $(mac.dmg.dir)"
 
 # rm dmg
-dmg-clobber:
+dmg-clean:
 	rm -f $(mac.dmg)
 
-################################################################################
-# notarize
-##########
-
-##### variables to override
+## notarize ####################################################################
 
 # binaries to notarize
 mac.notarize ?= $(foreach path,$(mac.dist),$(mac.dist.srcdir)/$(path))
@@ -290,16 +289,11 @@ mac.notarize ?= $(foreach path,$(mac.dist),$(mac.dist.srcdir)/$(path))
 # Keychain profile name for App Store Connect app-specific password
 mac.notarize.profile ?= AC_PASSWORD
 
-# temp notarization directory
-mac.notarize.dir ?= $(mac.builddir)/notarize
-
-##### notarize for Xcode 13+ using notarytool
-
 # current submission upload path
 mac.notarize.submit = $(shell grep -m 1 "path:" "$(mac.notarize.submit.log)" | awk '{print $$2}' || "")
 
-# xcrun output during submission and processing
-mac.notarize.submit.log = $(mac.notarize.dir)/Submission.log
+# output during submission and processing
+mac.notarize.submit.log = $(mac.builddir)/NotarizationSubmission.log
 
 # current submission uuid
 mac.notarize.submit.uuid = $(shell grep -m 1 "id:" $(mac.notarize.submit.log) | awk '{print $$2}' || "")
@@ -309,128 +303,71 @@ mac.notarize.submit.status = $(shell grep -m 1 "  status:" $(mac.notarize.submit
 
 # summary log after notarization is finished, either successfully or not
 # check this for details on errors
-mac.notarize.log = $(mac.notarize.dir)/NotarizationSummary.json
-
-notarize-zip: notarize-submit-zip notarize-log notarize-status notarize-staple
-
-notarize-dmg: notarize-submit-dmg notarize-log notarize-status notarize-staple
-
-notarize: notarize-dmg
+mac.notarize.log = $(mac.builddir)/NotarizationSummary.json
 
 .PHONY: notarize notarize-zip notarize-dmg \
         notarize-submit-zip notarize-submit-dmg \
         notarize-log notarize-staple notarize-history notarize-clean
 
-# make notarization dir
-$(mac.notarize.dir):
-	mkdir -p "$@"
+notarize: notarize-dmg
 
-# upload and notarize zip
-notarize-submit-zip: $(mac.notarize.dir)
+notarize-zip: notarize-submit-zip notarize-log notarize-status
+
+notarize-dmg: notarize-submit-dmg notarize-log notarize-status
+
+# upload zip
+notarize-submit-zip:
 	@echo "===== notarize zip"
-	$(XCRUN) notarytool submit "$(mac.zip)" \
+	rm -f $(mac.notarize.submit.log) $(mac.notarize.log)
+	xcrun notarytool submit $(mac.zip) \
 	    --keychain-profile "$(mac.notarize.profile)" \
-	    --wait 2>&1 | tee "$(mac.notarize.submit.log)"
-	if [ "$(mac.notarize.submit.status)" != "accepted" ]; then \
-	    echo "===== notarize: zip submission failed..."
-	fi
+	    --wait 2>&1 | tee $(mac.notarize.submit.log)
 
-# upload and notarize dmg
-notarize-submit-dmg: $(mac.notarize.dir)
+# upload dmg
+notarize-submit-dmg:
 	@echo "===== notarize dmg"
-	$(XCRUN) notarytool submit "$(mac.dmg)" \
+	rm -f $(mac.notarize.submit.log) $(mac.notarize.log)
+	xcrun notarytool submit $(mac.dmg) \
 	    --keychain-profile "$(mac.notarize.profile)" \
-	    --wait 2>&1 | tee "$(mac.notarize.submit.log)"
-
-# staple notarized apps or binaries,
-# zip files cannot be notarized but the binary contents can
-# FIXME: this probably can't handle paths with spaces
-notarize-staple:
-	@echo "===== notarize staple"
-	@for path in $(filter-out %.zip, $(mac.notarize) $(mac.notarize.submit)) ; do \
-		$(XCRUN) stapler staple "$$path" ; \
-	done
+	    --wait 2>&1 | tee $(mac.notarize.submit.log)
 
 # download notarization summary log
 notarize-log: $(mac.notarize.log)
 $(mac.notarize.log):
-	$(XCRUN) notarytool log $(mac.notarize.submit.uuid) \
-	    --keychain-profile "$(mac.notarize.profile)" > "$(mac.notarize.log)"
+	@echo "===== notarize log"
+	xcrun notarytool log $(mac.notarize.submit.uuid) \
+	    --keychain-profile "$(mac.notarize.profile)" > $(mac.notarize.log)
 
 # check status from logs and exit on error
 notarize-status: $(mac.notarize.log)
 	@echo "===== notarize status"
-	@if [ "$(mac.notarize.submit.status)" != "Accepted" ]; then \
-		echo "submission failed..." ; \
-		cat $(mac.notarize.log) && false ; \
-	else \
-		echo "submission $(mac.notarize.submit.status)" ;  \
-		cat $(mac.notarize.log) ; \
-	fi
-
-# verify signature and acceptance by the SIP system aka Gatekeeper
-notarize-verify:
-	@echo "===== notarize verify"
-	@for path in $(filter-out %.dmg %.zip, $(mac.notarize)) ; do \
-		echo "=== verify codesign $$path" ; \
-		$(CODESIGN) --verify --deep -vv "$$path" ; \
-	done
-	@for path in $(filter %.app, $(mac.notarize)) ; do \
-		echo "=== verify codesign $$path" ; \
-		$(CODESIGN) --verify --deep -vv "$$path" ; \
-		echo "=== verify notarize $$path" ; \
-		spctl --assess --type exec -v "$$path" ; \
-	done
-	@for path in $(filter %.dmg, $(mac.notarize.submit)) ; do \
-		echo "=== verify codesign $$path" ; \
-		$(CODESIGN) --verify --deep -vv "$$path" ; \
-		echo "=== verify notarize $$path" ; \
-		spctl --assess --type open --context context:primary-signature -v "$$path" ; \
-	done
+	@echo "submission $(mac.notarize.submit.status)"
+	cat $(mac.notarize.log)
+	@if [ "$(mac.notarize.submit.status)" != "Accepted" ]; then false ; fi
 
 # print request history
 notarize-history:
 	@echo "===== notarize history"
-	@$(XCRUN) notarytool history --keychain-profile "$(mac.notarize.profile)"
+	@xcrun notarytool history --keychain-profile "$(mac.notarize.profile)"
 
-# print variables
-notarize-vars:
-	@echo "mac.notarize: $(mac.notarize)"
-	@echo "mac.notarize.dir: $(mac.notarize.dir)"
-	@echo "mac.notarize.profile: $(mac.notarize.profile)"
-	@echo "mac.notarize.log: $(mac.notarize.log)"
-	@echo "mac.notarize.submit.log: $(mac.notarize.submit.log)"
+## staple ######################################################################
 
-# clean notarization directory
-notarize-clean:
-	rm -rf $(mac.notarize.dir)
+.PHONY: staple
 
-################################################################################
-# combined targets
-##################
+# staple notarized binaries and dmg
+# note: zip files cannot be notarized
+staple:
+	@echo "===== staple"
+	stapler staple $(filter-out %.zip, $(mac.notarize) $(mac.notarize.submit))
 
-# extra targets when Makefile-mac-app.mk is included
-.PHONY: app-var app-clean app-clobber
+## verify ######################################################################
 
-.PHONY: distzip distdmg distvars distclean distclobber
+.PHONY: verify
 
-# create a zip for distribution with notarized contents
-distzip: dist zip notarize-zip zip-clean zip notarize-verify
-
-# create and notarize dmg for distribution
-distdmg: dist dmg notarize-dmg notarize-verify
-
-# print all variables
-distvars: app-vars dist-vars codesign-vars zip-vars dmg-vars notarize-vars
-	@echo "Makefile-mac-dist.mk version $(makefile.mac.dist.version)"
-
-# clean entire dist build directory
-distclean: app-clean
-	rm -rf $(mac.builddir)
-
-# clean dist zip and dmg files
-distclobber: app-clobber zip-clobber dmg-clobber
-
-# for syntax highlighting in vim and github
-# vim: set filetype=make:
-# vim: set tabstop=4
+# verify signature and acceptance by the SIP system aka Gatekeeper
+verify:
+	@echo "===== verify"
+	codesign --verify --deep -vv $(filter-out %.dmg %.zip, $(mac.notarize))
+	$(foreach path,$(filter %.app, $(mac.notarize)),spctl --assess --type exec -v $(path))
+	$(foreach path,$(filter %.dmg, $(mac.notarize.submit)),codesign --verify --deep -vv $(path))
+	$(foreach path,$(filter %.dmg, $(mac.notarize.submit)),spctl --assess --type open --context context:primary-signature -v $(path)) 

@@ -1,9 +1,18 @@
-0.2.0: TBD
+0.3.0: 2022 Oct 28
+
+* further slimmed and re-consolidated into single makefile
+
+* removed variable print targets
+
+0.2.0: 2022 Oct 25
+
+* console program and dynamic lib signing and notarizing now working
 
 * consolidated separate section files into two makefiles: app export and distribution
+* verification now works and stops on error
 * updated readme for new layout and fleshed out basic targets and usage info
 
-* remove original mac-app-builder combined makefile
+* removed original mac-app-builder combined makefile
 
 0.1.0: 2022 Oct 10
 
