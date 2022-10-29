@@ -94,7 +94,7 @@ Additional targets are available for each subsection, most of which are invoked 
 * **staple**: staple notarized binaries and dmg
 * **verify**: verify signature and acceptance by the SIP system aka Gatekeeper
 
-Build files are generated in a temp directory, named `dist` by default. Single app export and distribution zip and dmg files are placed in the calling directory.
+Build files are generated in a temp directory, named `build` by default. Single app export and distribution zip and dmg files are placed in the calling directory.
 
 By default, a single-application project without meta-data will distribute the .app bundle without a containing subdirectory. When additional files are included via the `mac.dist.include` makefile variable, a subdirectory named with the version is used. This can be controlled by the `mac.dist.apponly` variable.
 
@@ -504,7 +504,7 @@ xcodebuild -project HelloWorld.xcodeproj -showBuildSettings | grep MARKETING_VER
 
 Pull from Info.plist *after* app is built (fast):
 ```shell
-/usr/libexec/PlistBuddy -c Print:CFBundleShortVersionString HelloWorld.app/Contents/Info.plist
+/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" HelloWorld.app/Contents/Info.plist
 1.0
 ``` 
 
