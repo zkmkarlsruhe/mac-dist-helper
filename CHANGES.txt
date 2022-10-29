@@ -1,3 +1,14 @@
+0.3.1: 2022 Oct 29
+
+* fixed ambiguous codesign identity by using Developer Application ID
+* don't call app-verify after app target since app is not notarized on first build
+
+* added predistdir and postdistdir overriable double-colon targets
+
+* changed mac.builddir default to "build" to avoid potentially shadowing dist
+  target in parent makefile(s)
+* removed dist from PHONY targets
+
 0.3.0: 2022 Oct 28
 
 * added min make version check

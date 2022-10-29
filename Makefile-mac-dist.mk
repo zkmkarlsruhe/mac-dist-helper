@@ -20,7 +20,7 @@
 # * https://www.gnu.org/software/make/manual/html_node/Text-Functions.html
 
 # makefile version
-makefile.mac.dist.version = 0.3.0
+makefile.mac.dist.version = 0.3.1
 
 # require make 3.81 as a minimum for modern functions like $(info), etc
 ifneq ($(firstword $(sort 3.81 $(MAKE_VERSION))), 3.81)
