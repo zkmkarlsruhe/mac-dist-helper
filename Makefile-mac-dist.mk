@@ -53,7 +53,7 @@ mac.builddir ?= build
 $(mac.builddir):
 	mkdir -p $@
 
-.PHONY: dist dist-zip dist-dmg dist-clean dist-clobber
+.PHONY: dist-zip dist-dmg dist-clean dist-clobber
 
 # create a zip for distribution with notarized contents
 dist-zip: distdir codesign zip notarize-zip staple zip-clean zip verify

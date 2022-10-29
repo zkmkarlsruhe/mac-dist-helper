@@ -210,7 +210,8 @@ include Makefile-mac-dist.mk
 Before building for distribution, make sure the OF lib itself is built by building the application once in Release mode with either Xcode or via `make` as `make app` doesn't do this. Then build the app export and notarized dmg with:
 
 ```shell
-make all app dist-dmg
+make
+make app dist-dmg
 ```
 
 ### Dynamic Library
@@ -259,7 +260,8 @@ In this case, the external is built using the [pd-lib-builder](https://github.co
 Similar to `HelloWorld`, create a notarized `foobar-1.2.3-macos-arm64.dmg` with:
 
 ```shell
-make all dist-dmg
+make
+make dist-dmg
 ```
 
 The mounted `foobar-1.2.3-macos-arm64` disk image contents should contain the lib(s) and meta-data within a version-named subdirectory:
@@ -370,7 +372,8 @@ include Makefile-mac-dist.mk
 Build for distribution by building the:
 
 ```shell
-make all dist-dmg
+make
+make dist-dmg
 ```
 
 Documentation
