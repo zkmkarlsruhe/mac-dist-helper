@@ -20,7 +20,7 @@
 # * https://www.gnu.org/software/make/manual/html_node/Text-Functions.html
 
 # makefile version
-makefile.mac.dist.version = 0.3.1
+makefile.mac.dist.version = 0.3.2
 
 # require make 3.81 as a minimum for modern functions like $(info), etc
 ifneq ($(firstword $(sort 3.81 $(MAKE_VERSION))), 3.81)
@@ -379,6 +379,6 @@ staple:
 verify:
 	@echo "===== verify"
 	codesign --verify --deep -vv $(filter-out %.dmg %.zip, $(mac.notarize))
-	$(foreach path,$(filter %.app, $(mac.notarize)),spctl --assess --type exec -v $(path))
-	$(foreach path,$(filter %.dmg, $(mac.notarize.submit)),codesign --verify --deep -vv $(path))
-	$(foreach path,$(filter %.dmg, $(mac.notarize.submit)),spctl --assess --type open --context context:primary-signature -v $(path)) 
+	$(foreach path,$(filter %.app, $(mac.notarize)),spctl --assess --type exec -v $(path) ; )
+	$(foreach path,$(filter %.dmg, $(mac.notarize.submit)),codesign --verify --deep -vv $(path) ; )
+	$(foreach path,$(filter %.dmg, $(mac.notarize.submit)),spctl --assess --type open --context context:primary-signature -v $(path) ; ) 

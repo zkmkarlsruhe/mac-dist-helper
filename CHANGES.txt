@@ -1,3 +1,7 @@
+0.3.2: 2022 Dec 06
+
+* fixed verify failing for multiple apps due to unseparated spctl calls
+
 0.3.1: 2022 Oct 29
 
 * fixed ambiguous codesign identity by using Developer Application ID
